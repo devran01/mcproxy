@@ -181,26 +181,27 @@ bool mld_sender::send_mldv2_query(unsigned int if_index, const timers_values& tv
 
 bool mld_sender::add_hbh_opt_header() const
 {
-    HC_LOG_TRACE("");
+     HC_LOG_TRACE("");
+ 
+     unsigned char extbuf[sizeof(struct ip6_hbh) + sizeof(struct ip6_opt_router) + sizeof(struct ip6_opt)];
+ 
+     struct ip6_hbh* hbh_Hdr = (struct ip6_hbh*)extbuf;
+     struct ip6_opt_router* opt_Hdr = (struct ip6_opt_router*)(hbh_Hdr + 1);
+     struct ip6_opt* pad_Hdr = (struct ip6_opt*)(opt_Hdr + 1);
+ 
+     hbh_Hdr->ip6h_nxt = IPPROTO_ICMPV6;
+     hbh_Hdr->ip6h_len =  MC_MASSAGES_IPV6_ROUTER_ALERT_OPT_SIZE; //=> 8 Bytes
+ 
+     opt_Hdr->ip6or_type = IP6OPT_ROUTER_ALERT;
+     opt_Hdr->ip6or_len = sizeof(opt_Hdr->ip6or_value);
+     *(u_int16_t*)&opt_Hdr->ip6or_value[0] = IP6_ALERT_MLD;
 
-    unsigned char extbuf[sizeof(struct ip6_hdr) + sizeof(struct ip6_hbh) + sizeof(struct ip6_opt_router) + sizeof(pad2)];
+     pad_Hdr->ip6o_type = IP6OPT_PADN;
+     pad_Hdr->ip6o_len = 0;
 
-    struct ip6_hbh* hbh_Hdr = (struct ip6_hbh*)extbuf;
-    struct ip6_opt_router* opt_Hdr = (struct ip6_opt_router*)(extbuf + sizeof(struct ip6_hbh));
-    pad2* pad_Hdr = (pad2*)(extbuf + sizeof(struct ip6_hbh) + sizeof(struct ip6_opt_router));
-
-    hbh_Hdr->ip6h_nxt = IPPROTO_ICMPV6;
-    hbh_Hdr->ip6h_len =  MC_MASSAGES_IPV6_ROUTER_ALERT_OPT_SIZE; //=> 8 Bytes
-
-    opt_Hdr->ip6or_type = IP6OPT_ROUTER_ALERT;
-    opt_Hdr->ip6or_len = sizeof(opt_Hdr->ip6or_value);
-    *(u_int16_t*)&opt_Hdr->ip6or_value[0] = IP6_ALERT_MLD;
-
-    *pad_Hdr = IP6OPT_PADN;
-
-    if (!m_sock.add_ipv6_extension_header((unsigned char*)hbh_Hdr, sizeof(struct ip6_hbh) + sizeof(struct ip6_opt_router) + sizeof(pad2))) {
-        return false;
-    }
-
-    return true;
+     if (!m_sock.add_ipv6_extension_header(extbuf, sizeof(extbuf))) {
+         return false;
+     }
+ 
+     return true;
 }
